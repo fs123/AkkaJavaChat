@@ -1,7 +1,6 @@
 package sadeghi.chat.client;
 
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 import sadeghi.chat.events.ChatLoginRequest;
@@ -11,19 +10,18 @@ import scala.concurrent.duration.Duration;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Inbox;
-import akka.actor.PoisonPill;
 import akka.actor.Props;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-
 public class ClientApplication {
 	private String serverHostName;
 	private int serverPort;
-	private Inbox clientInbox;
+	private Inbox loginActor;
 	private ActorRef clientActor;
 	private String userName;
 	private Consumer<String> answerHandler;
+	private ActorSystem clientActorSystem;
 
 	public ClientApplication(String hostName, int port, Consumer<String> answerHandler) {
 		this.serverHostName = hostName;
@@ -31,38 +29,41 @@ public class ClientApplication {
 		this.answerHandler = answerHandler;
 	}
 
-	public void login(String userName) {
+	public boolean login(String userName) {
 		this.userName = userName;
-		Config clientConfig = ConfigFactory.parseString("akka.remote.netty.tcp.port = 0" );
-		clientConfig = clientConfig.withFallback(ConfigFactory.parseString("akka.remote.netty.tcp.hostname = " + serverHostName));
+		Config clientConfig = ConfigFactory.parseString("akka.remote.netty.tcp.port = 0" )
+				.withFallback(ConfigFactory.parseString("akka.remote.netty.tcp.hostname = " + serverHostName))
+				.withFallback(ConfigFactory.load("common"));
 
-		ActorSystem clientActorSystem = ActorSystem.create("clientActorSystem", clientConfig.withFallback(ConfigFactory.load("common")));
-		clientActor = clientActorSystem.actorOf(Props.create(ClientActor.class, serverHostName, serverPort), userName);
-		clientInbox = Inbox.create(clientActorSystem);
+		clientActorSystem = ActorSystem.create("clientActorSystem", clientConfig);
+		loginActor = Inbox.create(clientActorSystem);
 		
-		answerHandler.accept("Send login request... " + serverHostName +":"+serverPort );
-		clientInbox.send(clientActor, new ChatLoginRequest(userName));
+		clientActor = clientActorSystem.actorOf(Props.create(ClientActor.class, serverHostName, serverPort), userName);
+
+		answerHandler.accept("Send login request... " + serverHostName + ":" + serverPort );
+		loginActor.send(clientActor, new ChatLoginRequest(userName));
 
 		try {
-			ChatLoginResponse response = (ChatLoginResponse) clientInbox.receive(Duration.create(15, TimeUnit.SECONDS));
-			if(!response.successful){
-				answerHandler.accept("ups, user already used...");
-				return;
+			ChatLoginResponse response = (ChatLoginResponse) loginActor.receive(Duration.create(1, TimeUnit.SECONDS));
+			if(!response.successful) {
+				answerHandler.accept("Ups, user already used...");
+				return false;
 			}
-		} catch (TimeoutException | ClassCastException e ) {
-			answerHandler.accept("Connection to server timeout. Try again later.");
-			return;
+		} catch (Exception e ) {
+			answerHandler.accept("Timeout: " + e.getMessage());
+			return false;
 		}
 		
-		answerHandler.accept("OK!");
-		answerHandler.accept("");
+		answerHandler.accept("you are logged in, let's chat...:");
+		return true;
 	}
 	
 	public void sendMessage(String message) {
-		clientInbox.send(clientActor, new ChatMessageToServer(userName, message));
+		loginActor.send(clientActor, new ChatMessageToServer(userName, message));
 	}
 
 	public void stop() {
-		clientActor.tell(PoisonPill.getInstance(), ActorRef.noSender());		
+//		clientActor.tell(PoisonPill.getInstance(), ActorRef.noSender());	
+		clientActorSystem.terminate();
 	}
 }

@@ -20,15 +20,17 @@ public class ClientStarter {
 		String userName = ConsoleUtil.readLineFromConsole();
 		
 		ClientApplication clientService = new ClientApplication(hostname, 14711, message -> System.out.println(message));
-		clientService.login(userName);
-
-		System.out.println("");
-		System.out.println("Enter your message:");
-		String message = "";
-		while(!message.equals("/exit")) {
-			message = ConsoleUtil.readLineFromConsole();
-			clientService.sendMessage(message);
+		if (clientService.login(userName)) {
+	
+			System.out.println("");
+			System.out.println("Enter your message:");
+			String message = "";
+			while(!message.equals("/exit")) {
+				message = ConsoleUtil.readLineFromConsole();
+				clientService.sendMessage(message);
+			}
 		}
 		clientService.stop();
+
 	}
 }
