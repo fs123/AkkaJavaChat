@@ -1,6 +1,7 @@
 package sadeghi.chat.server.internal;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -17,6 +18,6 @@ public class BroadcastMessageEvent implements Serializable {
 	public BroadcastMessageEvent(String from, String message, Map<String, ActorRef> userList) {
 		this.from = from;
 		this.message = message;
-		this.userList = new HashMap<>(userList);
+		this.userList = Collections.unmodifiableMap(new HashMap<>(userList));
 	}
 }
