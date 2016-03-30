@@ -1,8 +1,10 @@
 package sadeghi.chat.server.internal;
 
 import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import sadeghi.chat.events.ChatMessageFromServer;
+import scala.Option;
 import scala.concurrent.duration.Duration;
 import akka.actor.ActorRef;
 import akka.actor.OneForOneStrategy;
@@ -12,10 +14,13 @@ import akka.actor.UntypedActor;
 import akka.japi.Function;
 
 public class BroadcastMessageActor extends UntypedActor {
-
+	
+	private static final AtomicInteger INSTANCE_COUNTER = new AtomicInteger(0);
+	private final int instanceCount = INSTANCE_COUNTER.getAndIncrement();
+	
 	@Override
 	public void onReceive(final Object message) throws Exception {
-		System.out.println("onReceive: " + message);
+		System.out.println("BroadcastMessageActor[" + instanceCount + "].onReceive(): " + message);
 		if (message instanceof BroadcastMessageEvent) {
 			broadcastMessage((BroadcastMessageEvent) message);
 		} else {
@@ -25,6 +30,8 @@ public class BroadcastMessageActor extends UntypedActor {
 	}
 
 	private void broadcastMessage(BroadcastMessageEvent broadcastMessage) {
+		handleFailRequestOnStart(broadcastMessage);
+
 		ChatMessageFromServer sendMessage = new ChatMessageFromServer(broadcastMessage.from, broadcastMessage.message);
 		for (Entry<String, ActorRef> entry : broadcastMessage.userList.entrySet()) {
 			if (!entry.getKey().equals(broadcastMessage.from)) {
@@ -33,31 +40,30 @@ public class BroadcastMessageActor extends UntypedActor {
 		}
 	}
 
-	private static SupervisorStrategy strategy = 
-			new OneForOneStrategy(10, Duration.create("1 minute"), new Function<Throwable, Directive>() {
-		@Override
-		public Directive apply(Throwable t) {
-			/*
-			 *  - For this actor (AND all children!)
-				1. Resume the subordinate, keeping its accumulated internal state (not visible to the outside)
-				2. Restart the subordinate, clearing out its accumulated internal state
-				3. Stop the subordinate permanently
-				4. Escalate the failure, thereby failing itself
-			 */
-			if (t instanceof ArithmeticException) {
-				return SupervisorStrategy.resume();
-			} else if (t instanceof NullPointerException) {
-				return SupervisorStrategy.restart();
-			} else if (t instanceof IllegalArgumentException) {
-				return SupervisorStrategy.stop();
-			} else {
-				return SupervisorStrategy.escalate();
-			}
+	private void handleFailRequestOnStart(BroadcastMessageEvent broadcastMessage) {
+		String message = broadcastMessage.message;
+		if (!message.startsWith("/broadcast-fail-onstart")) {
+			return;
 		}
-	});
-
+		message = message.substring("/broadcast-fail-onstart".length()).trim();
+		throw new IllegalStateException(message);
+	}
+	
 	@Override
-	public SupervisorStrategy supervisorStrategy() {
-		return strategy;
+	public void preRestart(Throwable reason, Option<Object> message) throws Exception {
+		super.preRestart(reason, message);
+		System.out.println("BroadcastMessageActor[" + instanceCount + "].preRestart() says: good-by ");
+	}
+	
+	@Override
+	public void postStop() throws Exception {
+		super.postStop();
+		System.out.println("BroadcastMessageActor[" + instanceCount + "].postStop() says: adios amigos ");
+	}
+	
+	@Override
+	public void preStart() throws Exception {
+		super.preStart();
+		System.out.println("BroadcastMessageActor[" + instanceCount + "].preStart() says: back in town ");
 	}
 }
