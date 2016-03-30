@@ -5,13 +5,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import sadeghi.chat.events.ChatMessageFromServer;
 import scala.Option;
-import scala.concurrent.duration.Duration;
 import akka.actor.ActorRef;
-import akka.actor.OneForOneStrategy;
-import akka.actor.SupervisorStrategy;
-import akka.actor.SupervisorStrategy.Directive;
 import akka.actor.UntypedActor;
-import akka.japi.Function;
 
 public class BroadcastMessageActor extends UntypedActor {
 	
