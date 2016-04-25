@@ -1,11 +1,10 @@
 package sadeghi.chat.server.internal;
 
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import sadeghi.chat.events.ChatMessageFromServer;
 import scala.Option;
-import akka.actor.ActorRef;
+import akka.actor.ActorSelection;
 import akka.actor.UntypedActor;
 
 public class BroadcastMessageActor extends UntypedActor {
@@ -19,20 +18,15 @@ public class BroadcastMessageActor extends UntypedActor {
 		if (message instanceof BroadcastMessageEvent) {
 			broadcastMessage((BroadcastMessageEvent) message);
 		} else {
-			System.out.println("wtf :" + message.toString());
 			unhandled(message);
 		}
 	}
 
 	private void broadcastMessage(BroadcastMessageEvent broadcastMessage) {
 		handleFailRequestOnStart(broadcastMessage);
-
+		ActorSelection actorSelection = context().actorSelection("/user/serverActor/user_*");
 		ChatMessageFromServer sendMessage = new ChatMessageFromServer(broadcastMessage.from, broadcastMessage.message);
-		for (Entry<String, ActorRef> entry : broadcastMessage.userList.entrySet()) {
-			if (!entry.getKey().equals(broadcastMessage.from)) {
-				entry.getValue().tell(sendMessage, getSelf());
-			}
-		}
+		actorSelection.tell(sendMessage, getSelf());
 	}
 
 	private void handleFailRequestOnStart(BroadcastMessageEvent broadcastMessage) {

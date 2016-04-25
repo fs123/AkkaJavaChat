@@ -1,26 +1,23 @@
 package sadeghi.chat.server;
 
-import java.util.concurrent.ConcurrentHashMap;
-
 import sadeghi.chat.events.ChatLoginRequest;
 import sadeghi.chat.events.ChatLoginResponse;
 import sadeghi.chat.events.ChatMessageToServer;
 import sadeghi.chat.server.internal.BroadcastMessageActor;
 import sadeghi.chat.server.internal.BroadcastMessageEvent;
+import sadeghi.chat.server.internal.UserActor;
 import scala.concurrent.duration.Duration;
 import akka.actor.ActorRef;
 import akka.actor.OneForOneStrategy;
 import akka.actor.Props;
 import akka.actor.SupervisorStrategy;
-import akka.actor.UntypedActor;
 import akka.actor.SupervisorStrategy.Directive;
+import akka.actor.UntypedActor;
 import akka.japi.Function;
 
 public class ServerActor extends UntypedActor {
 
-	private ConcurrentHashMap<String, ActorRef> userList = new ConcurrentHashMap<>();
 	private ActorRef broadcastMessageActor;
-
 
 	@Override
 	public void preStart() throws Exception {
@@ -29,30 +26,25 @@ public class ServerActor extends UntypedActor {
 	
 	@Override
 	public void onReceive(final Object message) throws Exception {
-		System.out.println("onReceive: " + message);
+		System.out.println("ServerActor.onReceive: " + message);
 		if (message instanceof ChatLoginRequest) {
-			handleLoginRequest(message);
+			handleLoginRequest((ChatLoginRequest)message);
 		} else if (message instanceof ChatMessageToServer) {
-			handleChatMessageToServer(message);
+			handleChatMessageToServer((ChatMessageToServer)message);
 		} else {
-			System.out.println("wtf :" + message.toString());
 			unhandled(message);
 		}
 	}
 
-	private void handleLoginRequest(final Object message) {
-		boolean ok = userList.putIfAbsent(((ChatLoginRequest) message).name, sender()) == null;
-		getSender().tell(new ChatLoginResponse(ok), self());
+	private void handleLoginRequest(final ChatLoginRequest message) {
+		getContext().actorOf(UserActor.props(message.name, message.listener), "user_" + message.name);
+		getSender().tell(new ChatLoginResponse(true), self());
 	}
 
-	private void handleChatMessageToServer(final Object message) {
+	private void handleChatMessageToServer(final ChatMessageToServer message) {
 		ChatMessageToServer receivedMessage = (ChatMessageToServer) message;
-		if (receivedMessage.message.startsWith("/disconnect")) {
-			userList.remove(receivedMessage.from);
-		} else {
-			BroadcastMessageEvent event = new BroadcastMessageEvent(receivedMessage.from, receivedMessage.message, userList);
-			broadcastMessageActor.tell(event, self());
-		}
+		BroadcastMessageEvent event = new BroadcastMessageEvent(receivedMessage.from, receivedMessage.message);
+		broadcastMessageActor.tell(event, self());
 	}
 
 	/**
@@ -77,7 +69,7 @@ public class ServerActor extends UntypedActor {
 					  failure occurred is not re-processed.
 				4. Resume the subordinate, keeping its accumulated internal state (not visible to the outside)
 			 */
-			System.out.println(getClass().getSimpleName() + ": " + t.getMessage());
+			System.out.println("SupervisorStrategy: " + t.getMessage());
 			if (t.getMessage().equals("escalate")) {
 				return SupervisorStrategy.escalate();
 			} else if (t.getMessage().equals("stop")) {
