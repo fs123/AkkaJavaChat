@@ -9,10 +9,10 @@ public class ChatLoginRequest implements Serializable {
 	private static final long serialVersionUID = 1;
 	
 	public final String name;
-	public final ActorRef sender;
+	public final ActorRef listener;
 	
-	public ChatLoginRequest (String name, ActorRef sender) {
+	public ChatLoginRequest (String name, ActorRef listener) {
 		this.name = name;
-		this.sender = sender;
+		this.listener = listener;
 	}
 }

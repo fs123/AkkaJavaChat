@@ -1,6 +1,7 @@
 package sadeghi.chat.client;
 
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import sadeghi.chat.events.ChatLoginRequest;
 import sadeghi.chat.events.ChatMessageFromServer;
@@ -21,7 +22,10 @@ public class ClientActor extends UntypedActor {
 	// but this requires some performance
 	private final ActorSelection server;
 
-	public ClientActor(String host, int port) {
+	private Consumer<String> answerHandler;
+
+	public ClientActor(String host, int port, Consumer<String> answerHandler) {
+		this.answerHandler = answerHandler;
 		if (host == null || host.isEmpty()) {
 			throw new IllegalArgumentException("HOST and/or PORT missing.");
 		}
@@ -39,7 +43,7 @@ public class ClientActor extends UntypedActor {
 			// we forward the answer/response to the inbox (actor-ref), which has send us the login-request initial
 			Patterns.pipe(future, getContext().dispatcher()).to(getSender());
 		} else if (message instanceof ChatMessageFromServer) {
-			System.out.println(" $ " + ((ChatMessageFromServer) message).from + ": " + ((ChatMessageFromServer) message).message);
+			answerHandler.accept(" $ " + ((ChatMessageFromServer) message).from + ": " + ((ChatMessageFromServer) message).message);
 		} else if (message instanceof ChatMessageToServer) {
 			server.tell(message, self());
 		} else {

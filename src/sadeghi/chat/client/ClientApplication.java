@@ -17,7 +17,7 @@ import com.typesafe.config.ConfigFactory;
 public class ClientApplication {
 	private String serverHostName;
 	private int serverPort;
-	private Inbox loginActor;
+	private Inbox loginInboxActor;
 	private ActorRef clientActor;
 	private String userName;
 	private Consumer<String> answerHandler;
@@ -36,15 +36,16 @@ public class ClientApplication {
 				.withFallback(ConfigFactory.load("common"));
 
 		clientActorSystem = ActorSystem.create("clientActorSystem", clientConfig);
-		loginActor = Inbox.create(clientActorSystem);
+		loginInboxActor = Inbox.create(clientActorSystem);
 		
-		clientActor = clientActorSystem.actorOf(Props.create(ClientActor.class, serverHostName, serverPort), userName);
+		clientActor = clientActorSystem.actorOf(Props.create(ClientActor.class, serverHostName, serverPort, answerHandler), "user_" + userName);
 
 		answerHandler.accept("Send login request... " + serverHostName + ":" + serverPort );
-		loginActor.send(clientActor, new ChatLoginRequest(userName, clientActor));
+
+		loginInboxActor.send(clientActor, new ChatLoginRequest(userName, clientActor));
 
 		try {
-			ChatLoginResponse response = (ChatLoginResponse) loginActor.receive(Duration.create(1, TimeUnit.SECONDS));
+			ChatLoginResponse response = (ChatLoginResponse) loginInboxActor.receive(Duration.create(2, TimeUnit.SECONDS));
 			if(!response.successful) {
 				answerHandler.accept("Ups, user already used...");
 				return false;
@@ -59,7 +60,7 @@ public class ClientApplication {
 	}
 	
 	public void sendMessage(String message) {
-		loginActor.send(clientActor, new ChatMessageToServer(userName, message));
+		loginInboxActor.send(clientActor, new ChatMessageToServer(userName, message));
 	}
 
 	public void stop() {
