@@ -21,9 +21,10 @@ public class ServerActor extends UntypedActor {
 
 	@Override
 	public void preStart() throws Exception {
-		broadcastMessageActor = getContext().actorOf(Props.create(BroadcastMessageActor.class), "BroadcastMessageActor");
+		broadcastMessageActor = getContext().actorOf(Props.create(BroadcastMessageActor.class),
+				"BroadcastMessageActor");
 	}
-	
+
 	@Override
 	public void onReceive(final Object message) throws Exception {
 		System.out.println("ServerActor.onReceive: " + message);
@@ -48,9 +49,10 @@ public class ServerActor extends UntypedActor {
 	}
 
 	/**
-	 * From the docs - http://doc.akka.io/docs/akka/2.4.2/general/supervision.html:
-	 *  If you try to do too much at one level, it will become hard to reason about, 
-	 *  hence the recommended way in this case is to add a level of supervision.
+	 * From the docs -
+	 * http://doc.akka.io/docs/akka/2.4.2/general/supervision.html: If you try
+	 * to do too much at one level, it will become hard to reason about, hence
+	 * the recommended way in this case is to add a level of supervision.
 	 */
 	private static SupervisorStrategy strategy = new OneForOneStrategy(3, Duration.create("3 second"), new Function<Throwable, Directive>() {
 		@Override

@@ -41,6 +41,7 @@ public class ClientApplication {
 		clientActor = clientActorSystem.actorOf(Props.create(ClientActor.class, serverHostName, serverPort, answerHandler), "user_" + userName);
 
 		answerHandler.accept("Send login request... " + serverHostName + ":" + serverPort );
+
 		loginInboxActor.send(clientActor, new ChatLoginRequest(userName, clientActor));
 
 		try {

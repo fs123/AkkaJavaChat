@@ -10,6 +10,7 @@ public class ChatLoginRequest implements Serializable {
 	
 	public final String name;
 	public final ActorRef listener;
+	
 	public ChatLoginRequest (String name, ActorRef listener) {
 		this.name = name;
 		this.listener = listener;
